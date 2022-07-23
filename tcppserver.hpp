@@ -40,16 +40,16 @@ public:
     Address srvaddr, cliaddr;
 
     srvaddr = addr;
-    Socket::getaddrinfo(srvaddr);
-    srvsock.open(srvaddr.sa.sa_family);
+    srvaddr.getaddrinfo();
+    srvsock.open(srvaddr);
     srvsock.bind(srvaddr);
     srvsock.listen(5);
     srvsock.getsockname(srvaddr);
-    std::cout << "listen at " << Socket::addr_ntop(srvaddr) << std::endl;
+    std::cout << "listen at " << srvaddr.ntop() << std::endl;
 
     for (;;) {
       srvsock.accept(clisock, cliaddr);
-      std::cout << "accept from " << Socket::addr_ntop(cliaddr) << std::endl;
+      std::cout << "accept from " << cliaddr.ntop() << std::endl;
       arg = new Socket(std::move(clisock));
     docreate:
       err = pthread_create(&tid, NULL, requestHandle<Handler>, (void *)arg);

@@ -11,25 +11,6 @@
 #include <string>
 
 ///////////////////////////////////////////////////////////////////////////////
-//                                  Address                                  //
-///////////////////////////////////////////////////////////////////////////////
-
-#define AF_DOMAIN 0
-#define DOMAIN_MAX 253
-struct sockaddr_domain {
-  unsigned short sd_family;
-  unsigned short sd_port;
-  char sd_addr[DOMAIN_MAX + 1];
-};
-
-typedef union {
-  struct sockaddr sa;
-  struct sockaddr_in sin4;
-  struct sockaddr_in6 sin6;
-  struct sockaddr_domain sd;
-} Address;
-
-///////////////////////////////////////////////////////////////////////////////
 //                                   Error                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -60,6 +41,33 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////////////////
+//                                  Address                                  //
+///////////////////////////////////////////////////////////////////////////////
+
+#define AF_DOMAIN 0
+#define DOMAIN_MAX 253
+struct sockaddr_domain {
+  unsigned short sd_family;
+  unsigned short sd_port;
+  char sd_addr[DOMAIN_MAX + 1];
+};
+
+union Address {
+  struct sockaddr sa;
+  struct sockaddr_in sin4;
+  struct sockaddr_in6 sin6;
+  struct sockaddr_domain sd;
+
+  static socklen_t length(int family);
+  socklen_t length();
+  void getaddrinfo();
+
+  std::string ntop();
+  void pton(std::string pres);
+  int pton(std::string pres, int family);
+};
+
+///////////////////////////////////////////////////////////////////////////////
 //                                   Socket                                  //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -71,6 +79,7 @@ public:
   Socket(Socket &&sock);
   ~Socket();
   void open(int family);
+  void open(Address &addr);
   void close();
   void shutdown(int how);
 
@@ -90,13 +99,6 @@ public:
   void setsockopt(int level, int opt, void *val, socklen_t len);
   int getsockopt(int level, int opt);
   void setsockopt(int level, int opt, int val);
-
-  static socklen_t addrlen(int family);
-  static void getaddrinfo(Address &addr);
-
-  static std::string addr_ntop(Address &addr);
-  static void addr_pton(Address &addr, std::string src);
-  static int addr_pton_af(Address &addr, std::string src, int family);
 };
 
 #endif

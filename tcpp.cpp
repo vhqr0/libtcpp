@@ -47,99 +47,96 @@ std::string PTONError::str() const {
 //                                  Address                                  //
 ///////////////////////////////////////////////////////////////////////////////
 
-socklen_t Socket::addrlen(int family) {
+socklen_t Address::length(int family) {
   switch (family) {
   case AF_INET:
-    return sizeof(struct sockaddr_in);
+    return sizeof(sin4);
   case AF_INET6:
-    return sizeof(struct sockaddr_in6);
+    return sizeof(sin6);
   default:
     return 0;
   }
 }
 
-void Socket::getaddrinfo(Address &addr) {
+socklen_t Address::length() { return Address::length(sa.sa_family); }
+
+void Address::getaddrinfo() {
   int err;
   unsigned short port;
   struct addrinfo hints, *rai;
 
-  if (addr.sa.sa_family != AF_DOMAIN)
+  if (sa.sa_family != AF_DOMAIN)
     return;
-  port = addr.sd.sd_port;
+  port = sd.sd_port;
   memset(&hints, 0, sizeof(hints));
   hints.ai_socktype = SOCK_STREAM;
-  err = ::getaddrinfo(addr.sd.sd_addr, NULL, &hints, &rai);
+  err = ::getaddrinfo(sd.sd_addr, NULL, &hints, &rai);
   if (err)
-    throw GAIError(err, addr.sd.sd_addr);
+    throw GAIError(err, sd.sd_addr);
   switch (rai->ai_family) {
   case AF_INET:
-    addr.sin4 = *(struct sockaddr_in *)rai->ai_addr;
-    addr.sin4.sin_port = port;
+    sin4 = *(struct sockaddr_in *)rai->ai_addr;
+    sin4.sin_port = port;
     freeaddrinfo(rai);
     break;
   case AF_INET6:
-    addr.sin6 = *(struct sockaddr_in6 *)rai->ai_addr;
-    addr.sin6.sin6_port = port;
+    sin6 = *(struct sockaddr_in6 *)rai->ai_addr;
+    sin6.sin6_port = port;
     freeaddrinfo(rai);
     break;
   default:
     freeaddrinfo(rai);
-    throw GAIError(EAI_ADDRFAMILY, addr.sd.sd_addr);
+    throw GAIError(EAI_ADDRFAMILY, sd.sd_addr);
   }
 }
 
-std::string Socket::addr_ntop(Address &addr) {
+std::string Address::ntop() {
   std::ostringstream oss;
   char buf[INET6_ADDRSTRLEN];
 
-  switch (addr.sa.sa_family) {
+  switch (sa.sa_family) {
   case AF_INET:
-    inet_ntop(AF_INET, &addr.sin4.sin_addr, buf, INET_ADDRSTRLEN);
-    oss << buf << ':' << ntohs(addr.sin4.sin_port);
+    inet_ntop(AF_INET, &sin4.sin_addr, buf, INET_ADDRSTRLEN);
+    oss << buf << ':' << ntohs(sin4.sin_port);
     break;
   case AF_INET6:
-    inet_ntop(AF_INET6, &addr.sin6.sin6_addr, buf, INET6_ADDRSTRLEN);
-    oss << '[' << buf << ']' << ':' << ntohs(addr.sin6.sin6_port);
+    inet_ntop(AF_INET6, &sin6.sin6_addr, buf, INET6_ADDRSTRLEN);
+    oss << '[' << buf << ']' << ':' << ntohs(sin6.sin6_port);
     break;
   case AF_DOMAIN:
-    oss << addr.sd.sd_addr << ':' << ntohs(addr.sd.sd_port);
+    oss << sd.sd_addr << ':' << ntohs(sd.sd_port);
     break;
   default:
-    oss << '?' << addr.sa.sa_family << '?';
+    oss << '?' << sa.sa_family << '?';
   }
   return oss.str();
 }
 
-void Socket::addr_pton(Address &addr, std::string src) {
-  if (!addr_pton_af(addr, src, AF_INET))
-    return;
-  if (!addr_pton_af(addr, src, AF_INET6))
-    return;
-  if (!addr_pton_af(addr, src, AF_DOMAIN))
-    return;
-  throw PTONError(src);
+void Address::pton(std::string pres) {
+  if (pton(pres, AF_INET) && pton(pres, AF_INET6) && pton(pres, AF_DOMAIN))
+    throw PTONError(pres);
 }
 
-int Socket::addr_pton_af(Address &addr, std::string src, int family) {
+int Address::pton(std::string pres, int family) {
   unsigned short port;
   std::string addrstr, portstr;
   std::string::size_type pos;
 
-  if (!src.length()) {
+  if (!pres.length()) {
     return -1;
-  } else if (src[0] == '[') {
-    pos = src.find(']');
+  } else if (pres[0] == '[') {
+    pos = pres.find(']');
     if (pos == std::string::npos || pos + 1 == std::string::npos ||
-        src[pos + 1] != ':')
+        pres[pos + 1] != ':')
       return -1;
-    addrstr = src.substr(1, pos - 1);
-    portstr = src.substr(pos + 2);
+    addrstr = pres.substr(1, pos - 1);
+    portstr = pres.substr(pos + 2);
   } else {
-    pos = src.find(':');
+    pos = pres.find(':');
     if (pos == std::string::npos)
       return -1;
-    addrstr = src.substr(0, pos);
-    portstr = src.substr(pos + 1);
+    addrstr = pres.substr(0, pos);
+    portstr = pres.substr(pos + 1);
   }
 
   try {
@@ -148,24 +145,24 @@ int Socket::addr_pton_af(Address &addr, std::string src, int family) {
     return -1;
   }
 
-  memset(&addr, 0, sizeof(addr));
+  memset(this, 0, sizeof(Address));
   switch (family) {
   case AF_INET:
-    addr.sin4.sin_family = AF_INET;
-    addr.sin4.sin_port = htons(port);
-    if (inet_pton(AF_INET, addrstr.c_str(), &addr.sin4.sin_addr) != 1)
+    sin4.sin_family = AF_INET;
+    sin4.sin_port = htons(port);
+    if (inet_pton(AF_INET, addrstr.c_str(), &sin4.sin_addr) != 1)
       return -1;
     break;
   case AF_INET6:
-    addr.sin6.sin6_family = AF_INET6;
-    addr.sin6.sin6_port = htons(port);
-    if (inet_pton(AF_INET6, addrstr.c_str(), &addr.sin6.sin6_addr) != 1)
+    sin6.sin6_family = AF_INET6;
+    sin6.sin6_port = htons(port);
+    if (inet_pton(AF_INET6, addrstr.c_str(), &sin6.sin6_addr) != 1)
       return -1;
     break;
   case AF_DOMAIN:
-    addr.sd.sd_family = AF_DOMAIN;
-    addr.sd.sd_port = htons(port);
-    strncpy(addr.sd.sd_addr, addrstr.c_str(), DOMAIN_MAX);
+    sd.sd_family = AF_DOMAIN;
+    sd.sd_port = htons(port);
+    strncpy(sd.sd_addr, addrstr.c_str(), DOMAIN_MAX);
     break;
   default:
     return -1;
@@ -197,6 +194,8 @@ void Socket::open(int family) {
   this->family = family;
 }
 
+void Socket::open(Address &addr) { open(addr.sa.sa_family); }
+
 void Socket::close() {
   int fd, err;
   socklen_t len = sizeof(err);
@@ -223,7 +222,7 @@ void Socket::bind(Address &addr) {
 
   if (addr.sa.sa_family != family)
     throw OSError(EINVAL, "BIND");
-  err = ::bind(fd, &addr.sa, addrlen(addr.sa.sa_family));
+  err = ::bind(fd, &addr.sa, addr.length());
   if (err)
     throw OSError(errno, "BIND");
 }
@@ -238,7 +237,7 @@ void Socket::listen(int backlog) {
 
 void Socket::accept(Socket &sock, Address &addr) {
   int fd;
-  socklen_t len = addrlen(family);
+  socklen_t len = Address::length(family);
 
   memset(&addr, 0, sizeof(addr));
   fd = ::accept(this->fd, &addr.sa, &len);
@@ -254,7 +253,7 @@ void Socket::connect(Address &addr) {
   if (addr.sa.sa_family != family)
     throw OSError(EINVAL, "CONNECT");
 doconnect:
-  err = ::connect(fd, &addr.sa, addrlen(addr.sa.sa_family));
+  err = ::connect(fd, &addr.sa, addr.length());
   if (err) {
     if (errno == EINTR)
       goto doconnect;
@@ -330,7 +329,7 @@ void Socket::sendall(void *buf, size_t len) {
 
 void Socket::getsockname(Address &addr) {
   int err;
-  socklen_t len = addrlen(family);
+  socklen_t len = Address::length(family);
 
   memset(&addr, 0, sizeof(addr));
   err = ::getsockname(fd, &addr.sa, &len);
@@ -340,7 +339,7 @@ void Socket::getsockname(Address &addr) {
 
 void Socket::getpeername(Address &addr) {
   int err;
-  socklen_t len = addrlen(family);
+  socklen_t len = Address::length(family);
 
   memset(&addr, 0, sizeof(addr));
   err = ::getpeername(fd, &addr.sa, &len);
