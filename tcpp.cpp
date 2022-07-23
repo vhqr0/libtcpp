@@ -13,12 +13,28 @@
 //                                   Error                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-OSError::OSError() : no(errno) {}
-OSError::OSError(int no) : no(no) {}
-std::string OSError::what() { return strerror(no); }
+OSError::OSError(const char *scname)
+    : tid(pthread_self()), no(errno), scname(scname) {}
+OSError::OSError(int no, const char *scname)
+    : tid(pthread_self()), no(no), scname(scname) {}
+std::string OSError::what() {
+  std::ostringstream oss;
+  oss << '{' << tid << '}';
+  oss << '[' << scname << ']';
+  oss << '(' << strerror(no) << ')';
+  return oss.str();
+}
 
-GAIError::GAIError(int no) : no(no) {}
-std::string GAIError::what() { return gai_strerror(no); }
+GAIError::GAIError(int no, const char *domain)
+    : tid(pthread_self()), no(no), domain(domain) {}
+std::string GAIError::what() {
+  std::ostringstream oss;
+  oss << '{' << tid << '}';
+  oss << "[GAI]";
+  oss << '<' << domain << '>';
+  oss << '(' << gai_strerror(no) << ')';
+  return oss.str();
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                  Address                                  //
@@ -47,7 +63,7 @@ void Socket::getaddrinfo(Address &addr) {
   hints.ai_socktype = SOCK_STREAM;
   err = ::getaddrinfo(addr.sd.sd_addr, NULL, &hints, &rai);
   if (err)
-    throw GAIError(err);
+    throw GAIError(err, addr.sd.sd_addr);
   switch (rai->ai_family) {
   case AF_INET:
     addr.sin4 = *(struct sockaddr_in *)rai->ai_addr;
@@ -61,7 +77,7 @@ void Socket::getaddrinfo(Address &addr) {
     break;
   default:
     freeaddrinfo(rai);
-    throw GAIError(EAI_ADDRFAMILY);
+    throw GAIError(EAI_ADDRFAMILY, addr.sd.sd_addr);
   }
 }
 
@@ -82,7 +98,7 @@ std::string Socket::addr_ntop(Address &addr) {
     oss << addr.sd.sd_addr << ':' << ntohs(addr.sd.sd_port);
     break;
   default:
-    oss << '[' << "NTOP_UAF" << '(' << addr.sa.sa_family << ')' << ']';
+    oss << '?' << addr.sa.sa_family << '?';
   }
   return oss.str();
 }
@@ -154,16 +170,20 @@ int Socket::addr_pton(Address &addr, std::string src, int family) {
 ///////////////////////////////////////////////////////////////////////////////
 
 Socket::Socket() : fd(-1), family(-1) {}
+Socket::Socket(Socket &&sock) : fd(sock.fd), family(sock.family) {
+  sock.fd = -1;
+  sock.family = -1;
+}
 Socket::~Socket() { close(); }
 
 void Socket::open(int family) {
   int fd;
 
   if (family != AF_INET && family != AF_INET6)
-    throw OSError(EAFNOSUPPORT);
+    throw OSError(EAFNOSUPPORT, "OPEN");
   fd = ::socket(family, SOCK_STREAM, 0);
   if (fd < 0)
-    throw OSError();
+    throw OSError("OPEN");
   this->fd = fd;
   this->family = family;
 }
@@ -193,10 +213,10 @@ void Socket::bind(Address &addr) {
   int err;
 
   if (addr.sa.sa_family != family)
-    throw OSError(EINVAL);
+    throw OSError(EINVAL, "BIND");
   err = ::bind(fd, &addr.sa, addrlen(addr.sa.sa_family));
   if (err)
-    throw OSError();
+    throw OSError("BIND");
 }
 
 void Socket::listen(int backlog) {
@@ -204,7 +224,7 @@ void Socket::listen(int backlog) {
 
   err = ::listen(fd, backlog);
   if (err)
-    throw OSError();
+    throw OSError("LISTEN");
 }
 
 void Socket::accept(Socket &sock, Address &addr) {
@@ -214,7 +234,7 @@ void Socket::accept(Socket &sock, Address &addr) {
   memset(&addr, 0, sizeof(addr));
   fd = ::accept(this->fd, &addr.sa, &len);
   if (fd < -1)
-    throw OSError();
+    throw OSError("ACCEPT");
   sock.fd = fd;
   sock.family = addr.sa.sa_family;
 }
@@ -223,13 +243,13 @@ void Socket::connect(Address &addr) {
   int err;
 
   if (addr.sa.sa_family != family)
-    throw OSError(EINVAL);
+    throw OSError(EINVAL, "CONNECT");
 doconnect:
   err = ::connect(fd, &addr.sa, addrlen(addr.sa.sa_family));
   if (err) {
     if (errno == EINTR)
       goto doconnect;
-    throw OSError();
+    throw OSError("CONNECT");
   }
 }
 
@@ -245,7 +265,7 @@ dorecv:
   if (n < 0) {
     if (errno == EINTR)
       goto dorecv;
-    throw OSError();
+    throw OSError("RECV");
   }
   return n;
 }
@@ -260,7 +280,7 @@ dosend:
       goto dosend;
     if (errno == EPIPE)
       return -1;
-    throw OSError();
+    throw OSError("SEND");
   }
   return n;
 }
@@ -273,10 +293,10 @@ dorecv:
   if (n < 0) {
     if (errno == EINTR)
       goto dorecv;
-    throw OSError();
+    throw OSError("RECV");
   }
   if (n != len)
-    throw OSError(EFAULT);
+    throw OSError(EFAULT, "RECV");
 }
 
 void Socket::sendall(void *buf, size_t len) {
@@ -288,7 +308,7 @@ void Socket::sendall(void *buf, size_t len) {
     if (n < 0) {
       if (errno == EINTR)
         continue;
-      throw OSError();
+      throw OSError("SEND");
     }
     cur += n;
     len -= n;
@@ -306,7 +326,7 @@ void Socket::getsockname(Address &addr) {
   memset(&addr, 0, sizeof(addr));
   err = ::getsockname(fd, &addr.sa, &len);
   if (err)
-    throw OSError();
+    throw OSError("GETSOCKNAME");
 }
 
 void Socket::getpeername(Address &addr) {
@@ -316,7 +336,7 @@ void Socket::getpeername(Address &addr) {
   memset(&addr, 0, sizeof(addr));
   err = ::getpeername(fd, &addr.sa, &len);
   if (err)
-    throw OSError();
+    throw OSError("GETPEERNAME");
 }
 
 void Socket::getsockopt(int level, int opt, void *val, socklen_t *len) {
@@ -324,7 +344,7 @@ void Socket::getsockopt(int level, int opt, void *val, socklen_t *len) {
 
   err = ::getsockopt(fd, level, opt, val, len);
   if (err)
-    throw OSError();
+    throw OSError("GETSOCKOPT");
 }
 
 void Socket::setsockopt(int level, int opt, void *val, socklen_t len) {
@@ -332,7 +352,7 @@ void Socket::setsockopt(int level, int opt, void *val, socklen_t len) {
 
   err = ::setsockopt(fd, level, opt, val, len);
   if (err)
-    throw OSError();
+    throw OSError("SETSOCKOPT");
 }
 
 int Socket::getsockopt(int level, int opt) {
