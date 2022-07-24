@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#include <iostream>
 #include <sstream>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -67,6 +68,13 @@ void Address::getaddrinfo() {
   int err;
   unsigned short port;
   struct addrinfo hints, *rai;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "getaddrinfo@" << sd.sd_addr << std::endl;
+  }
+#endif
 
   if (sa.sa_family != AF_DOMAIN)
     return;
@@ -195,6 +203,13 @@ void Socket::open(int family) {
     throw OSError(errno, "OPEN");
   this->fd = fd;
   this->family = family;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "open@" << fd << std::endl;
+  }
+#endif
 }
 
 void Socket::open(Address &addr) { open(addr.sa.sa_family); }
@@ -202,6 +217,13 @@ void Socket::open(Address &addr) { open(addr.sa.sa_family); }
 void Socket::close() {
   int fd, err;
   socklen_t len = sizeof(err);
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "close@" << this->fd << std::endl;
+  }
+#endif
 
   fd = this->fd;
   this->fd = -1;
@@ -216,12 +238,27 @@ void Socket::close() {
 }
 
 void Socket::shutdown(int how) {
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "shutdown@" << fd << std::endl;
+  }
+#endif
+
   if (fd > 0)
     ::shutdown(fd, how);
 }
 
 void Socket::bind(Address &addr) {
   int err;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "bind@" << fd << std::endl;
+  }
+#endif
 
   if (addr.sa.sa_family != family)
     throw OSError(EINVAL, "BIND");
@@ -233,6 +270,13 @@ void Socket::bind(Address &addr) {
 void Socket::listen(int backlog) {
   int err;
 
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "listen@" << fd << std::endl;
+  }
+#endif
+
   err = ::listen(fd, backlog);
   if (err)
     throw OSError(errno, "LISTEN");
@@ -241,6 +285,13 @@ void Socket::listen(int backlog) {
 void Socket::accept(Socket &sock, Address &addr) {
   int fd;
   socklen_t len = Address::length(family);
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "accept@" << this->fd << std::endl;
+  }
+#endif
 
   memset(&addr, 0, sizeof(addr));
   fd = ::accept(this->fd, &addr.sa, &len);
@@ -252,6 +303,13 @@ void Socket::accept(Socket &sock, Address &addr) {
 
 void Socket::connect(Address &addr) {
   int err;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "connect@" << fd << std::endl;
+  }
+#endif
 
   if (addr.sa.sa_family != family)
     throw OSError(EINVAL, "CONNECT");
@@ -271,6 +329,13 @@ doconnect:
 ssize_t Socket::recv(void *buf, size_t len, int flags) {
   ssize_t n;
 
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "recv@" << fd << std::endl;
+  }
+#endif
+
 dorecv:
   n = ::recv(fd, buf, len, flags);
   if (n < 0) {
@@ -283,6 +348,13 @@ dorecv:
 
 ssize_t Socket::send(void *buf, size_t len, int flags) {
   ssize_t n;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "send@" << fd << std::endl;
+  }
+#endif
 
 dosend:
   n = ::send(fd, buf, len, flags | MSG_NOSIGNAL);
@@ -299,6 +371,13 @@ dosend:
 void Socket::recvall(void *buf, size_t len) {
   ssize_t n;
 
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "recvall@" << fd << std::endl;
+  }
+#endif
+
 dorecv:
   n = ::recv(fd, buf, len, MSG_WAITALL);
   if (n < 0) {
@@ -313,6 +392,13 @@ dorecv:
 void Socket::sendall(void *buf, size_t len) {
   ssize_t n;
   char *cur = (char *)buf;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG")) {
+    std::cout << '{' << pthread_self() << '}';
+    std::cout << "sendall@" << fd << std::endl;
+  }
+#endif
 
   while (len) {
     n = ::send(fd, cur, len, MSG_NOSIGNAL);
