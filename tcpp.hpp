@@ -18,7 +18,7 @@ class TCPPError : public std::exception {
 public:
   pthread_t tid;
   TCPPError();
-  virtual std::string str() const noexcept =0;
+  virtual std::string str() const noexcept = 0;
 };
 
 class OSError : public TCPPError {
@@ -91,12 +91,12 @@ public:
   void shutdown(int how);
 
   void bind(Address &addr);
-  void listen(int backlog);
+  void listen(int backlog = 5);
   void accept(Socket &sock, Address &addr);
   void connect(Address &addr);
 
-  ssize_t recv(void *buf, size_t len, int flags);
-  ssize_t send(void *buf, size_t len, int flags);
+  ssize_t recv(void *buf, size_t len, int flags = 0);
+  ssize_t send(void *buf, size_t len, int flags = 0);
   void recvall(void *buf, size_t len);
   void sendall(void *buf, size_t len);
 

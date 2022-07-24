@@ -22,9 +22,13 @@
     void run() BODY                                                            \
   };
 
-template <class Handler> void *requestHandle(void *arg) {
-  Handler handler(arg);
-  handler.run();
+template <class Handler> void *handleRequest(void *arg) {
+  try {
+    Handler handler(arg);
+    handler.run();
+  } catch (const TCPPError &e) {
+    std::cout << e.str() << std::endl;
+  }
   return NULL;
 }
 
@@ -42,8 +46,9 @@ public:
     srvaddr = addr;
     srvaddr.getaddrinfo();
     srvsock.open(srvaddr);
+    srvsock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1);
     srvsock.bind(srvaddr);
-    srvsock.listen(5);
+    srvsock.listen();
     srvsock.getsockname(srvaddr);
     std::cout << "listen at " << srvaddr.ntop() << std::endl;
 
@@ -52,7 +57,7 @@ public:
       std::cout << "accept from " << cliaddr.ntop() << std::endl;
       arg = new Socket(std::move(clisock));
     docreate:
-      err = pthread_create(&tid, NULL, requestHandle<Handler>, (void *)arg);
+      err = pthread_create(&tid, NULL, handleRequest<Handler>, arg);
       if (err) {
         if (err == EAGAIN)
           goto docreate;
