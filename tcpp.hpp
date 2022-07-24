@@ -14,30 +14,37 @@
 //                                   Error                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-class OSError : std::exception {
+class TCPPError : public std::exception {
 public:
   pthread_t tid;
+  TCPPError();
+  virtual std::string str() const noexcept =0;
+};
+
+class OSError : public TCPPError {
+public:
   int no;
   std::string scname;
   OSError(int no, std::string scname);
-  std::string str() const;
+  std::string str() const noexcept override;
+  const char *what() const noexcept override;
 };
 
-class GAIError : std::exception {
+class GAIError : public TCPPError {
 public:
-  pthread_t tid;
   int no;
   std::string domain;
   GAIError(int no, std::string domain);
-  std::string str() const;
+  std::string str() const noexcept override;
+  const char *what() const noexcept override;
 };
 
-class PTONError : std::exception {
+class PTONError : public TCPPError {
 public:
-  pthread_t tid;
   std::string pres;
   PTONError(std::string pres);
-  std::string str() const;
+  std::string str() const noexcept override;
+  const char *what() const noexcept override;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

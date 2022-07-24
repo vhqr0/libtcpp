@@ -13,19 +13,20 @@
 //                                   Error                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-OSError::OSError(int no, std::string scname)
-    : tid(pthread_self()), no(no), scname(scname) {}
-std::string OSError::str() const {
+TCPPError::TCPPError() : tid(pthread_self()) {}
+
+OSError::OSError(int no, std::string scname) : no(no), scname(scname) {}
+std::string OSError::str() const noexcept {
   std::ostringstream oss;
   oss << '{' << tid << '}';
   oss << '[' << scname << ']';
   oss << '(' << strerror(no) << ')';
   return oss.str();
 }
+const char *OSError::what() const noexcept { return scname.c_str(); }
 
-GAIError::GAIError(int no, std::string domain)
-    : tid(pthread_self()), no(no), domain(domain) {}
-std::string GAIError::str() const {
+GAIError::GAIError(int no, std::string domain) : no(no), domain(domain) {}
+std::string GAIError::str() const noexcept {
   std::ostringstream oss;
   oss << '{' << tid << '}';
   oss << "[GAI]";
@@ -33,15 +34,17 @@ std::string GAIError::str() const {
   oss << '(' << gai_strerror(no) << ')';
   return oss.str();
 }
+const char *GAIError::what() const noexcept { return domain.c_str(); }
 
-PTONError::PTONError(std::string pres) : tid(pthread_self()), pres(pres) {}
-std::string PTONError::str() const {
+PTONError::PTONError(std::string pres) : pres(pres) {}
+std::string PTONError::str() const noexcept {
   std::ostringstream oss;
   oss << '{' << tid << '}';
   oss << "[PTON]";
   oss << '<' << pres << '>';
   return oss.str();
 }
+const char *PTONError::what() const noexcept { return pres.c_str(); }
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                  Address                                  //
