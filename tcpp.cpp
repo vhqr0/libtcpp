@@ -16,12 +16,18 @@
 
 TCPPError::TCPPError() : tid(pthread_self()) {}
 
+ASSERTError::ASSERTError(std::string expr) : expr(expr) {}
+std::string ASSERTError::str() const noexcept {
+  std::ostringstream oss;
+  oss << tid << '|' << "ASSERT" << ':' << expr;
+  return oss.str();
+}
+const char *ASSERTError::what() const noexcept { return expr.c_str(); }
+
 OSError::OSError(int no, std::string scname) : no(no), scname(scname) {}
 std::string OSError::str() const noexcept {
   std::ostringstream oss;
-  oss << '{' << tid << '}';
-  oss << '[' << scname << ']';
-  oss << '(' << strerror(no) << ')';
+  oss << tid << '|' << scname << ':' << strerror(no);
   return oss.str();
 }
 const char *OSError::what() const noexcept { return scname.c_str(); }
@@ -29,10 +35,7 @@ const char *OSError::what() const noexcept { return scname.c_str(); }
 GAIError::GAIError(int no, std::string domain) : no(no), domain(domain) {}
 std::string GAIError::str() const noexcept {
   std::ostringstream oss;
-  oss << '{' << tid << '}';
-  oss << "[GAI]";
-  oss << '<' << domain << '>';
-  oss << '(' << gai_strerror(no) << ')';
+  oss << tid << '|' << "GAI" << '@' << domain << ':' << gai_strerror(no);
   return oss.str();
 }
 const char *GAIError::what() const noexcept { return domain.c_str(); }
@@ -71,7 +74,7 @@ void Address::getaddrinfo() {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "getaddrinfo@" << sd.sd_addr << std::endl;
   }
 #endif
@@ -206,7 +209,7 @@ void Socket::open(int family) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "open@" << fd << std::endl;
   }
 #endif
@@ -220,7 +223,7 @@ void Socket::close() {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "close@" << this->fd << std::endl;
   }
 #endif
@@ -241,7 +244,7 @@ void Socket::shutdown(int how) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "shutdown@" << fd << std::endl;
   }
 #endif
@@ -255,7 +258,7 @@ void Socket::bind(Address &addr) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "bind@" << fd << std::endl;
   }
 #endif
@@ -272,7 +275,7 @@ void Socket::listen(int backlog) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "listen@" << fd << std::endl;
   }
 #endif
@@ -288,7 +291,7 @@ void Socket::accept(Socket &sock, Address &addr) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "accept@" << this->fd << std::endl;
   }
 #endif
@@ -306,7 +309,7 @@ void Socket::connect(Address &addr) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "connect@" << fd << std::endl;
   }
 #endif
@@ -331,7 +334,7 @@ ssize_t Socket::recv(void *buf, size_t len, int flags) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "recv@" << fd << std::endl;
   }
 #endif
@@ -351,7 +354,7 @@ ssize_t Socket::send(void *buf, size_t len, int flags) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "send@" << fd << std::endl;
   }
 #endif
@@ -373,7 +376,7 @@ void Socket::recvall(void *buf, size_t len) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "recvall@" << fd << std::endl;
   }
 #endif
@@ -395,7 +398,7 @@ void Socket::sendall(void *buf, size_t len) {
 
 #ifdef TCPP_DEBUG
   if (getenv("TCPP_DEBUG")) {
-    std::cout << '{' << pthread_self() << '}';
+    std::cout << "DEBUG:\t" << pthread_self() << '|';
     std::cout << "sendall@" << fd << std::endl;
   }
 #endif
@@ -434,6 +437,18 @@ void Socket::getpeername(Address &addr) {
   err = ::getpeername(fd, &addr.sa, &len);
   if (err)
     throw OSError(errno, "GETPEERNAME");
+}
+
+std::string Socket::getsockstr() {
+  Address addr;
+  getsockname(addr);
+  return addr.ntop();
+}
+
+std::string Socket::getpeerstr() {
+  Address addr;
+  getpeername(addr);
+  return addr.ntop();
 }
 
 void Socket::getsockopt(int level, int opt, void *val, socklen_t *len) {

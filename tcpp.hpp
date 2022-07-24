@@ -4,6 +4,7 @@
 #include <pthread.h>
 
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -20,6 +21,18 @@ public:
   TCPPError();
   virtual std::string str() const noexcept = 0;
 };
+
+class ASSERTError : public TCPPError {
+public:
+  std::string expr;
+  ASSERTError(std::string expr);
+  std::string str() const noexcept override;
+  const char *what() const noexcept override;
+};
+
+#define ASSERT(EXPR)                                                           \
+  if (!(EXPR))                                                                 \
+    throw ASSERTError(#EXPR);
 
 class OSError : public TCPPError {
 public:
@@ -52,7 +65,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 
 #define AF_DOMAIN 0
-#define DOMAIN_MAX 253
+#define DOMAIN_MAX 255
 struct sockaddr_domain {
   unsigned short sd_family;
   unsigned short sd_port;
@@ -102,6 +115,8 @@ public:
 
   void getsockname(Address &addr);
   void getpeername(Address &addr);
+  std::string getsockstr();
+  std::string getpeerstr();
   void getsockopt(int level, int opt, void *val, socklen_t *len);
   void setsockopt(int level, int opt, void *val, socklen_t len);
   int getsockopt(int level, int opt);

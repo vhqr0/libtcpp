@@ -27,7 +27,7 @@ template <class Handler> void *handleRequest(void *arg) {
     Handler handler(arg);
     handler.run();
   } catch (const TCPPError &e) {
-    std::cout << e.str() << std::endl;
+    std::cout << "ERROR:\t" << e.str() << std::endl;
   }
   return NULL;
 }
@@ -50,11 +50,10 @@ public:
     srvsock.bind(srvaddr);
     srvsock.listen();
     srvsock.getsockname(srvaddr);
-    std::cout << "listen at " << srvaddr.ntop() << std::endl;
+    std::cout << "SERVER:\tLISTEN@" << srvaddr.ntop() << std::endl;
 
     for (;;) {
       srvsock.accept(clisock, cliaddr);
-      std::cout << "accept from " << cliaddr.ntop() << std::endl;
       arg = new Socket(std::move(clisock));
     docreate:
       err = pthread_create(&tid, NULL, handleRequest<Handler>, arg);
