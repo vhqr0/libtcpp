@@ -45,11 +45,11 @@ void Socks5::run() {
   n = isock.recv(buf, sizeof(buf));
   ver = buf[0];
   len = buf[1];
-  ASSERT(n > 2 && ver == 5 && len != 0 && n == len + 2);
+  ASSERT(n > 2 && ver == 5 && len != 0 && n == len + 2, "Invalid auth request");
   for (i = 2; i < n; i++)
     if (buf[i] == 0)
       break;
-  ASSERT(i != n);
+  ASSERT(i != n, "Invalid auth request");
   isock.sendall((void *)"\x05\x00", 2);
 
   n = isock.recv(buf, sizeof(buf));
@@ -57,26 +57,27 @@ void Socks5::run() {
   cmd = buf[1];
   rsv = buf[2];
   atype = buf[3];
-  ASSERT(n > 4 && ver == 5 && cmd == 1 && rsv == 0);
-  ASSERT(atype == ATYPE_IPV4 || atype == ATYPE_IPV6 || atype == ATYPE_DOMAIN);
+  ASSERT(n > 4 && ver == 5 && cmd == 1 && rsv == 0, "Invalid request");
+  ASSERT(atype == ATYPE_IPV4 || atype == ATYPE_IPV6 || atype == ATYPE_DOMAIN,
+         "Invalid request");
 
   memset(&addr, 0, sizeof(addr));
   switch (atype) {
   case ATYPE_IPV4:
-    ASSERT(n == 10);
+    ASSERT(n == 10, "Invalid request");
     addr.sin4.sin_family = AF_INET;
     memcpy(&addr.sin4.sin_addr, buf + 4, 4);
     memcpy(&addr.sin4.sin_port, buf + 8, 2);
     break;
   case ATYPE_IPV6:
-    ASSERT(n == 22);
+    ASSERT(n == 22, "Invalid request");
     addr.sin6.sin6_family = AF_INET6;
     memcpy(&addr.sin6.sin6_addr, buf + 4, 16);
     memcpy(&addr.sin6.sin6_port, buf + 20, 2);
     break;
   case ATYPE_DOMAIN:
     len = buf[4];
-    ASSERT(n == len + 7);
+    ASSERT(n == len + 7, "Invalid request");
     addr.sd.sd_family = AF_DOMAIN;
     memcpy(&addr.sd.sd_addr, buf + 5, len);
     memcpy(&addr.sd.sd_port, buf + len + 5, 2);
@@ -182,7 +183,7 @@ int main(int argc, char **argv) {
   Address addr;
 
   try {
-    ASSERT(argc == 2);
+    ASSERT(argc == 2, "Invalid argument");
     addr.pton(argv[1]);
     Server<Socks5RequestHandler> server(addr);
     server.run();

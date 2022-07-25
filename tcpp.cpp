@@ -16,9 +16,9 @@
 
 TCPPError::TCPPError() {}
 
-ASSERTError::ASSERTError(std::string expr) : expr(expr) {}
-std::string ASSERTError::str() const noexcept { return "ASSERT:" + expr; }
-const char *ASSERTError::what() const noexcept { return expr.c_str(); }
+ASSERTError::ASSERTError(std::string msg) : msg(msg) {}
+std::string ASSERTError::str() const noexcept { return "ASSERT:" + msg; }
+const char *ASSERTError::what() const noexcept { return msg.c_str(); }
 
 OSError::OSError(int no, std::string scname) : no(no), scname(scname) {}
 std::string OSError::str() const noexcept {

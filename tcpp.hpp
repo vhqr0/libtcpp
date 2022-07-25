@@ -21,15 +21,15 @@ public:
 
 class ASSERTError : public TCPPError {
 public:
-  std::string expr;
-  ASSERTError(std::string expr);
+  std::string msg;
+  ASSERTError(std::string msg);
   std::string str() const noexcept override;
   const char *what() const noexcept override;
 };
 
-#define ASSERT(EXPR)                                                           \
+#define ASSERT(EXPR, MSG)                                                      \
   if (!(EXPR))                                                                 \
-    throw ASSERTError(#EXPR);
+    throw ASSERTError(MSG);
 
 class OSError : public TCPPError {
 public:
