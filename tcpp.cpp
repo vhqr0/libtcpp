@@ -43,9 +43,7 @@ const char *GAIError::what() const noexcept { return domain.c_str(); }
 PTONError::PTONError(std::string pres) : pres(pres) {}
 std::string PTONError::str() const noexcept {
   std::ostringstream oss;
-  oss << '{' << tid << '}';
-  oss << "[PTON]";
-  oss << '<' << pres << '>';
+  oss << tid << '|' << "PTON@" << pres;
   return oss.str();
 }
 const char *PTONError::what() const noexcept { return pres.c_str(); }

@@ -27,7 +27,7 @@ template <class Handler> void *handleRequest(void *arg) {
     Handler handler(arg);
     handler.run();
   } catch (const TCPPError &e) {
-    std::cout << "ERROR:\t" << e.str() << std::endl;
+    std::cout << "ERROR:\t" + e.str() + "\n";
   }
   return NULL;
 }
@@ -50,7 +50,7 @@ public:
     srvsock.bind(srvaddr);
     srvsock.listen();
     srvsock.getsockname(srvaddr);
-    std::cout << "SERVER:\tLISTEN@" << srvaddr.ntop() << std::endl;
+    std::cout << "SERVER:\tLISTEN@" + srvaddr.ntop() + "\n";
 
     for (;;) {
       srvsock.accept(clisock, cliaddr);
