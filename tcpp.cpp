@@ -446,11 +446,13 @@ void Socket::setsockopt(int level, int opt, int val) {
 //                                   Epoll                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-Event::Event(Socket &&sock, int events, CallbackType callback)
-    : sock(std::move(sock)), callback(callback) {
+Event::Event(Socket &&sock, int events) : sock(std::move(sock)) {
   epev.events = events;
   epev.data.ptr = this;
 }
+GenericEvent::GenericEvent(Socket &&sock, int events, CBType cb)
+    : Event(std::move(sock), events), cb(cb) {}
+void GenericEvent::callback(Epoll &ep, int events) { cb(ep, this, events); }
 
 Epoll::Epoll() : fd(-1) {}
 Epoll::Epoll(Epoll &&ep) : fd(ep.fd) { ep.fd = -1; }
@@ -520,14 +522,11 @@ int Epoll::wait(std::vector<struct epoll_event> &epevs, int timeout) {
 
 void Epoll::run(int maxevents) {
   int i, nfds;
-  Event *ev;
   std::vector<struct epoll_event> epevs(maxevents);
 
   for (;;) {
     nfds = wait(epevs, -1);
-    for (i = 0; i < nfds; i++) {
-      ev = (Event *)epevs[i].data.ptr;
-      ev->callback(*this, ev, epevs[i].events);
-    }
+    for (i = 0; i < nfds; i++)
+      ((Event *)epevs[i].data.ptr)->callback(*this, epevs[i].events);
   }
 }

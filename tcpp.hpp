@@ -133,13 +133,21 @@ class Epoll;
 
 class Event {
 public:
-  using CallbackType = std::function<void(Epoll &, Event *, int)>;
-
   Socket sock;
   struct epoll_event epev;
-  CallbackType callback;
 
-  Event(Socket &&sock, int events, CallbackType callback);
+  Event(Socket &&sock, int events);
+  virtual void callback(Epoll &ep, int events) = 0;
+};
+
+class GenericEvent : public Event {
+public:
+  using CBType = std::function<void(Epoll &, Event *, int)>;
+
+  CBType cb;
+
+  GenericEvent(Socket &&sock, int events, CBType cb);
+  void callback(Epoll &ep, int events) override;
 };
 
 class Epoll {
@@ -157,6 +165,6 @@ public:
   void add(Event &ev);
   void mod(Event &ev);
   void del(Event &ev);
-  int wait(std::vector<struct epoll_event> &epes, int timeout = -1);
+  int wait(std::vector<struct epoll_event> &epevs, int timeout = -1);
   void run(int maxevents = 16);
 };
