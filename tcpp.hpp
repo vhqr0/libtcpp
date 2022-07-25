@@ -1,8 +1,6 @@
 #ifndef TCPP_H
 #define TCPP_H
 
-#include <pthread.h>
-
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -17,7 +15,6 @@
 
 class TCPPError : public std::exception {
 public:
-  pthread_t tid;
   TCPPError();
   virtual std::string str() const noexcept = 0;
 };

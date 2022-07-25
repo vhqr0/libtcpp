@@ -3,6 +3,8 @@
 
 #include "tcpp.hpp"
 
+#include <pthread.h>
+
 #include <iostream>
 #include <utility>
 

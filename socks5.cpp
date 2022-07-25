@@ -5,8 +5,6 @@
 
 #include <sys/select.h>
 
-#include <sstream>
-
 #define SOCKS5_BUFSIZE 4096
 
 #define STS_DONE 0
@@ -37,7 +35,6 @@ Socks5::Socks5(Socket &isock) : isock(isock), osock() {}
 
 void Socks5::run() {
   int i, n, err, len, ver, cmd, rsv, atype, nfds;
-  std::ostringstream oss;
   struct linger linger;
   fd_set rfds, wfds;
   PipeContext ctx[2];
