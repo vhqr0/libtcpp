@@ -9,6 +9,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                   Error                                   //
@@ -439,4 +440,94 @@ int Socket::getsockopt(int level, int opt) {
 
 void Socket::setsockopt(int level, int opt, int val) {
   setsockopt(level, opt, &val, sizeof(val));
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//                                   Epoll                                   //
+///////////////////////////////////////////////////////////////////////////////
+
+Event::Event(Socket &&sock, int events, CallbackType callback)
+    : sock(std::move(sock)), callback(callback) {
+  epev.events = events;
+  epev.data.ptr = this;
+}
+
+Epoll::Epoll() : fd(-1) {}
+Epoll::Epoll(Epoll &&ep) : fd(ep.fd) { ep.fd = -1; }
+Epoll::~Epoll() { close(); }
+
+void Epoll::open() {
+  int fd;
+
+  fd = epoll_create(1);
+  if (fd < 0)
+    throw OSError(errno, "EPOLL_CREATE");
+  this->fd = fd;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG"))
+    std::cout << "DEBUG:\tEPOLL_CREATE@" << fd << std::endl;
+#endif
+}
+
+void Epoll::close() {
+  int fd, err;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG"))
+    std::cout << "DEBUG:\tEPOLL_CLOSE@" << this->fd << std::endl;
+#endif
+
+  fd = this->fd;
+  this->fd = -1;
+  if (fd > 0) {
+  doclose:
+    err = ::close(fd);
+    if (err && errno == EINTR)
+      goto doclose;
+  }
+}
+
+void Epoll::ctl(Event &ev, int op) {
+  int err;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG"))
+    std::cout << "DEBUG:\tEPOLL_CTL@" << fd << std::endl;
+#endif
+
+  err = epoll_ctl(fd, op, ev.sock.fd, &ev.epev);
+  if (err)
+    throw OSError(errno, "EPOLL_CTL");
+}
+void Epoll::add(Event &ev) { ctl(ev, EPOLL_CTL_ADD); }
+void Epoll::mod(Event &ev) { ctl(ev, EPOLL_CTL_MOD); }
+void Epoll::del(Event &ev) { ctl(ev, EPOLL_CTL_DEL); }
+
+int Epoll::wait(std::vector<struct epoll_event> &epevs, int timeout) {
+  int nfds;
+
+#ifdef TCPP_DEBUG
+  if (getenv("TCPP_DEBUG"))
+    std::cout << "DEBUG:\tEPOLL_WAIT@" << fd << std::endl;
+#endif
+
+  nfds = epoll_wait(fd, &epevs[0], epevs.size(), timeout);
+  if (nfds < 0)
+    throw OSError(errno, "EPOLL_WAIT");
+  return nfds;
+}
+
+void Epoll::run(int maxevents) {
+  int i, nfds;
+  Event *ev;
+  std::vector<struct epoll_event> epevs(maxevents);
+
+  for (;;) {
+    nfds = wait(epevs, -1);
+    for (i = 0; i < nfds; i++) {
+      ev = (Event *)epevs[i].data.ptr;
+      ev->callback(*this, ev, epevs[i].events);
+    }
+  }
 }

@@ -3,11 +3,14 @@
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
 #include <exception>
+#include <functional>
 #include <string>
+#include <vector>
 
 ///////////////////////////////////////////////////////////////////////////////
 //                                   Error                                   //
@@ -121,3 +124,39 @@ public:
 };
 
 #endif
+
+///////////////////////////////////////////////////////////////////////////////
+//                                   Epoll                                   //
+///////////////////////////////////////////////////////////////////////////////
+
+class Epoll;
+
+class Event {
+public:
+  using CallbackType = std::function<void(Epoll &, Event *, int)>;
+
+  Socket sock;
+  struct epoll_event epev;
+  CallbackType callback;
+
+  Event(Socket &&sock, int events, CallbackType callback);
+};
+
+class Epoll {
+private:
+  int fd;
+
+public:
+  Epoll();
+  Epoll(Epoll &&ep);
+  ~Epoll();
+
+  void open();
+  void close();
+  void ctl(Event &ev, int op);
+  void add(Event &ev);
+  void mod(Event &ev);
+  void del(Event &ev);
+  int wait(std::vector<struct epoll_event> &epes, int timeout = -1);
+  void run(int maxevents = 16);
+};
