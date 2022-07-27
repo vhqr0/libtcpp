@@ -123,8 +123,6 @@ public:
   void setsockopt(int level, int opt, int val);
 };
 
-#endif
-
 ///////////////////////////////////////////////////////////////////////////////
 //                                   Epoll                                   //
 ///////////////////////////////////////////////////////////////////////////////
@@ -168,3 +166,5 @@ public:
   int wait(std::vector<struct epoll_event> &epevs, int timeout = -1);
   void run(int maxevents = 16);
 };
+
+#endif
